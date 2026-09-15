@@ -1,6 +1,6 @@
 import React from 'react';
 import Script from 'next/script';
-import './globals.css'; // Wajib di-import agar Tailwind CSS aktif!
+import './globals.css';
 
 export const metadata = {
   title: 'Pi Network NFT Auction',
@@ -16,13 +16,12 @@ export default function RootLayout({
   return (
     <html lang="id" className="dark">
       <head>
-        {/* Load SDK Resmi Pi Network secara asinkron sebelum halaman interaktif */}
         <Script
           src="https://sdk.minepi.com/pi-sdk.js"
           strategy="beforeInteractive"
         />
       </head>
-      <body className="bg-slate-950 text-slate-100 antialiased min-h-screen flex flex-col selection:bg-cyan-500 selection:text-slate-950">
+      <body className="bg-slate-950 text-slate-100 antialiased min-h-screen flex flex-col">
         {children}
       </body>
     </html>
