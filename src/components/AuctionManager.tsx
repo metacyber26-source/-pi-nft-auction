@@ -4,13 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { VerificationBanner } from './VerificationBanner';
 
-// Deklarasi tipe global agar TypeScript mengenali objek window.Pi
-declare global {
-  interface Window {
-    Pi?: any;
-  }
-}
-
 interface AuctionProps {
   auction: {
     id: string;
@@ -31,7 +24,6 @@ export const AuctionManager: React.FC<AuctionProps> = ({ auction, currentUserPiI
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Anti-Sniping & Countdown Logic
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date().getTime();
@@ -61,8 +53,11 @@ export const AuctionManager: React.FC<AuctionProps> = ({ auction, currentUserPiI
     setIsSubmitting(true);
 
     try {
-      if (typeof window !== 'undefined' && window.Pi) {
-        window.Pi.createPayment(
+      // Menggunakan (window as any) agar TypeScript tidak memblokir proses build di Vercel
+      const _window = typeof window !== 'undefined' ? (window as any) : null;
+
+      if (_window && _window.Pi) {
+        _window.Pi.createPayment(
           {
             amount: 0.2,
             memo: `Bidding entry fee for auction #${auction.id}`,
