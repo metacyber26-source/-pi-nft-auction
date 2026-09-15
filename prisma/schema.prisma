@@ -1,0 +1,93 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum AuctionStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  ENDED_WAITING_LISTING
+  LISTED_WAITING_BUY
+  COMPLETED
+  DISPUTED
+  EXPIRED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_BUYER_WIN
+  RESOLVED_SELLER_WIN
+}
+
+model User {
+  piUserId        String        @id @map("pi_user_id")
+  username        String
+  trustScore      Float         @default(5.0) @map("trust_score")
+  totalAuctions   Int           @default(0) @map("total_auctions")
+  successfulDeals Int           @default(0) @map("successful_deals")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  
+  auctions        Auction[]     @relation("SellerAuctions")
+  wonAuctions     Auction[]     @relation("WinnerAuctions")
+  bids            Bid[]
+  disputes        Dispute[]     @relation("ReportedDisputes")
+
+  @@map("users")
+}
+
+model Auction {
+  id                 String        @id @default(uuid())
+  sellerId           String        @map("seller_id")
+  winnerId           String?       @map("winner_id")
+  title              String
+  creatorName        String        @map("creator_name")
+  piboxSsUrl         String        @map("pibox_ss_url")
+  startPrice         Float         @map("start_price")
+  highestBid         Float         @default(0) @map("highest_bid")
+  durationHours      Int           @map("duration_hours")
+  expiresAt          DateTime      @map("expires_at")
+  status             AuctionStatus @default(PENDING_PAYMENT)
+  listingProofSsUrl  String?       @map("listing_proof_ss_url")
+  purchaseProofSsUrl String?       @map("purchase_proof_ss_url")
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  seller             User          @relation("SellerAuctions", fields: [sellerId], references: [piUserId])
+  winner             User?         @relation("WinnerAuctions", fields: [winnerId], references: [piUserId])
+  bids               Bid[]
+  disputes           Dispute[]
+
+  @@map("auctions")
+}
+
+model Bid {
+  id        String   @id @default(uuid())
+  auctionId String   @map("auction_id")
+  bidderId  String   @map("bidder_id")
+  amount    Float
+  feePaid   Boolean  @default(false) @map("fee_paid")
+  timestamp DateTime @default(now())
+
+  auction   Auction  @relation(fields: [auctionId], references: [id])
+  bidder    User     @relation(fields: [bidderId], references: [piUserId])
+
+  @@map("bids")
+}
+
+model Dispute {
+  id         String        @id @default(uuid())
+  auctionId  String        @map("auction_id")
+  reporterId String        @map("reporter_id")
+  reason     String
+  status     DisputeStatus @default(OPEN)
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  auction    Auction       @relation(fields: [auctionId], references: [id])
+  reporter   User          @relation("ReportedDisputes", fields: [reporterId], references: [piUserId])
+
+  @@map("disputes")
+}
