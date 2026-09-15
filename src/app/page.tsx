@@ -1,12 +1,120 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// Deklarasi tipe global untuk Pi SDK agar TypeScript tidak error
+declare global {
+  interface Window {
+    Pi?: any;
+  }
+}
 
 export default function NFTAuctionPage() {
   const [bidAmount, setBidAmount] = useState<string>('11');
+  const [piUser, setPiUser] = useState<{ username: string; uid: string } | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [sdkReady, setSdkReady] = useState<boolean>(false);
 
-  const handlePlaceBid = () => {
-    alert(`Penawaran sebesar ${bidAmount} π berhasil diajukan!`);
+  // 1. Inisialisasi Pi Network SDK
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Pi) {
+      try {
+        window.Pi.init({ version: '2.0', sandbox: true }); // Ubah sandbox: false jika sudah Mainnet Production
+        setSdkReady(true);
+        
+        // Autentikasi Pengguna
+        authenticatePiUser();
+      } catch (err) {
+        console.error('Gagal menginisialisasi Pi SDK:', err);
+      }
+    }
+  }, []);
+
+  // 2. Fungsi Autentikasi Pengguna Pi Browser
+  const authenticatePiUser = async () => {
+    if (!window.Pi) return;
+
+    const scopes = ['username', 'payments'];
+    
+    function onIncompletePaymentFound(payment: any) {
+      console.log('Menemukan pembayaran tertunda:', payment);
+      // Kirim payment.identifier ke backend untuk di-complete jika ada transaksi menggantung
+    }
+
+    try {
+      const auth = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+      setPiUser({
+        username: auth.user.username,
+        uid: auth.user.uid,
+      });
+    } catch (error) {
+      console.error('Autentikasi Pi gagal:', error);
+    }
+  };
+
+  // 3. Fungsi Transaksi Lelang via Pi Network Payment API
+  const handlePlaceBid = async () => {
+    if (!window.Pi) {
+      alert('Buka aplikasi ini dari dalam Pi Browser!');
+      return;
+    }
+
+    const numericBid = parseFloat(bidAmount);
+    if (isNaN(numericBid) || numericBid <= 10) {
+      alert('Nilai penawaran harus lebih tinggi dari Highest Bid (10 π)');
+      return;
+    }
+
+    // Total yang dibayar: Nominal Bid + 0.2 Fee
+    const totalAmount = (numericBid + 0.2).toFixed(2);
+
+    setIsLoading(true);
+
+    try {
+      await window.Pi.createPayment(
+        {
+          amount: parseFloat(totalAmount),
+          memo: `Bid Lelang NFT Special Edition (${bidAmount} π + 0.2 Fee)`,
+          metadata: { 
+            nftId: 'pi-special-edition-01', 
+            bidder: piUser ? piUser.username : 'Master Ful21',
+            rawBid: numericBid,
+            fee: 0.2 
+          },
+        },
+        {
+          // A. Callback saat server Pi menyetujui payment ID
+          onReadyForServerApproval: async (paymentId: string) => {
+            console.log('Payment ID siap disetujui server:', paymentId);
+            // Opsional: Kirim paymentId ke Backend kamu (Next.js API route/Replit backend)
+          },
+
+          // B. Callback saat user berhasil konfirmasi transaksi di wallet
+          onReadyForServerCompletion: async (paymentId: string, txid: string) => {
+            console.log('Transaksi sukses di blockchain, TXID:', txid);
+            alert(`Selamat! Penawaran sebesar ${bidAmount} π berhasil diajukan.\nTXID: ${txid}`);
+            setIsLoading(false);
+          },
+
+          // C. Callback jika transaksi dibatalkan user
+          onCancel: (paymentId: string) => {
+            console.log('Pembayaran dibatalkan:', paymentId);
+            alert('Penawaran dibatalkan.');
+            setIsLoading(false);
+          },
+
+          // D. Callback jika terjadi error saat payment
+          onError: (error: Error, payment: any) => {
+            console.error('Error pembayaran:', error);
+            alert('Terjadi kesalahan saat memproses transaksi Pi.');
+            setIsLoading(false);
+          },
+        }
+      );
+    } catch (err) {
+      console.error('Gagal membuat transaksi:', err);
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -19,9 +127,16 @@ export default function NFTAuctionPage() {
             + Sell NFT
           </button>
         </div>
-        <button className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded transition flex items-center gap-1">
-          🇬🇧 EN
-        </button>
+        <div className="flex items-center gap-2">
+          {piUser && (
+            <span className="text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded text-[10px]">
+              @{piUser.username}
+            </span>
+          )}
+          <button className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded transition flex items-center gap-1">
+            🇬🇧 EN
+          </button>
+        </div>
       </header>
 
       {/* Main Container */}
@@ -85,6 +200,7 @@ export default function NFTAuctionPage() {
                   onChange={(e) => setBidAmount(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl py-2.5 px-3 text-white text-sm outline-none transition pr-8 font-semibold"
                   placeholder="Masukkan angka"
+                  disabled={isLoading}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
                   π
@@ -93,9 +209,24 @@ export default function NFTAuctionPage() {
 
               <button
                 onClick={handlePlaceBid}
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold py-3 px-4 rounded-xl shadow-lg shadow-cyan-500/20 transition active:scale-[0.98] text-sm"
+                disabled={isLoading}
+                className={`w-full font-bold py-3 px-4 rounded-xl shadow-lg transition active:scale-[0.98] text-sm flex items-center justify-center gap-2 ${
+                  isLoading
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-cyan-500/20'
+                }`}
               >
-                Place Bid (0.2 π Fee)
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-slate-400" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Memproses Transaksi...</span>
+                  </>
+                ) : (
+                  `Place Bid (${(parseFloat(bidAmount || '0') + 0.2).toFixed(1)} π Total)`
+                )}
               </button>
             </div>
           </div>
