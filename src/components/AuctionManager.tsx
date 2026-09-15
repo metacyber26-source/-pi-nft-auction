@@ -4,6 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { VerificationBanner } from './VerificationBanner';
 
+// Deklarasi tipe global agar TypeScript mengenali objek window.Pi
+declare global {
+  interface Window {
+    Pi?: any;
+  }
+}
+
 interface AuctionProps {
   auction: {
     id: string;
@@ -94,6 +101,9 @@ export const AuctionManager: React.FC<AuctionProps> = ({ auction, currentUserPiI
             },
           }
         );
+      } else {
+        alert(lang === 'id' ? 'Buka aplikasi ini di Pi Browser!' : 'Please open this app inside Pi Browser!');
+        setIsSubmitting(false);
       }
     } catch (err) {
       console.error(err);
