@@ -4,7 +4,6 @@ import React from 'react';
 import { AuctionManager } from '@/components/AuctionManager';
 import { LanguageProvider } from '@/context/LanguageContext';
 
-// Data simulasi awal untuk pengujian lelang di Pi Browser
 const dummyAuction = {
   id: '1',
   title: 'Pi Network NFT Special Edition',
