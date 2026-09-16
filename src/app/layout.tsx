@@ -1,11 +1,9 @@
-import React from 'react';
-import Script from 'next/script';
 import './globals.css';
+import Script from 'next/script';
 
 export const metadata = {
   title: 'Pi Network NFT Auction',
   description: 'Aplikasi Lelang NFT Pi Network',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 };
 
 export default function RootLayout({
@@ -21,7 +19,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
       </head>
-      <body className="bg-slate-950 text-slate-100 antialiased min-h-screen flex flex-col">
+      <body className="bg-slate-950 text-slate-100 min-h-screen">
         {children}
       </body>
     </html>
